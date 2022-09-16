@@ -1,0 +1,6 @@
+[build]
+target-dir = "build/cargo"
+#rustflags = ["", ""]
+
+[install]
+#root = ""

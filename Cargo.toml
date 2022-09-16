@@ -1,0 +1,28 @@
+[package]
+name = "dep2j"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+[profile.dev]
+debug = true
+debug-assertions = true
+overflow-checks = true
+lto = false
+panic = "unwind"
+incremental = true
+codegen-units = 256
+rpath = false
+
+[profile.release]
+opt-level = 3
+debug = false
+debug-assertions = false
+overflow-checks = false
+lto = true
+panic = "unwind"
+incremental = false
+codegen-units = 16
+rpath = false
+
