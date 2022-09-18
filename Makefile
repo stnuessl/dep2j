@@ -85,9 +85,11 @@ release: $(release_target)
 -include $(cargo_dir)/release/dep2j.d
 
 $(debug_target):
+	@printf "$(green)Building [ $@ ]$(reset)\n"
 	cargo build
 
 $(release_target):
+	@printf "$(green)Building [ $@ ]$(reset)\n"
 	cargo build --release
 
 unit-tests:
