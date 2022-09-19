@@ -22,6 +22,9 @@ use std::os::unix::io::AsRawFd;
 extern "C" {
     #[cfg(target_family = "unix")]
     fn isatty(fd: c_int) -> c_int;
+
+    #[cfg(target_family = "windows")]
+    fn _isatty(fd: c_int) -> c_int;
 }
 
 pub trait Term {
@@ -32,5 +35,10 @@ impl Term for io::Stdin {
     #[cfg(target_family = "unix")]
     fn isatty(&self) -> bool {
         unsafe { isatty(self.as_raw_fd()) == 1 }
+    }
+
+    #[cfg(target_family = "windows")]
+    fn isatty(&self) -> bool {
+        unsafe { _isatty(self.as_raw_fd()) != 0 }
     }
 }
