@@ -34,15 +34,47 @@ envfile := $(BUILD_DIR)/env.txt
 os_release := $(BUILD_DIR)/os-release.txt
 tarball := $(BUILD_DIR)/$(bin).tar.gz
 
-dirs := $(BUILD_DIR)
 
-UNIX_TIME := $(shell date --utc +"%s")
+unix_time := $(shell date --utc +"%s")
 
+
+#
+# Variables for shellcheck
+#
+shell_scripts := $(shell find . -name "*.sh")
+
+shellcheck_flags := \
+	--color=auto \
+	--external-sources \
+	--format gcc \
+	--enable all \
+	--norc \
+	--shell $(firstword $(notdir $(SHELL)))
+
+shellcheck_dir := $(BUILD_DIR)/shellcheck
+shellcheck_output := $(shellcheck_dir)/shellcheck.txt
+
+version_file := $(BUILD_DIR)/versions.txt
+version_list = \
+	"$(shell cargo --version)" \
+	"$(shell rustc --version)" \
+	"$(shell make --version)" \
+	"$(shell shellcheck --version)" \
+	"$(shell curl --version)"
+
+dirs := \
+	$(BUILD_DIR) \
+	$(shellcheck_dir)
+
+
+#
+# Variables for the Artifactory upload
+#
 ifdef ARTIFACTORY_API_KEY
 
 os_name := $(shell sed -E -n "s/^ID=([a-z0-9\._-]+)\s*$$/\1/p" /etc/os-release)
-date	:= $(shell date --utc --date="@$(UNIX_TIME)" +"%Y-%m-%d")
-time	:= $(shell date --utc --date="@$(UNIX_TIME)" +"%H:%M:%S")
+date	:= $(shell date --utc --date="@$(unix_time)" +"%Y-%m-%d")
+time	:= $(shell date --utc --date="@$(unix_time)" +"%H:%M:%S")
 
 artifactory_upload_url := \
 	https://nuessle.jfrog.io/artifactory$\
@@ -85,12 +117,14 @@ release: $(release_target)
 -include $(cargo_dir)/release/dep2j.d
 
 $(debug_target):
-	@printf "$(green)Building [ $@ ]$(reset)\n"
-	cargo build
+	@printf "$(blue)Building [ $@ ]$(reset)\n"
+	cargo build --color=never
+	@printf "$(green)Built target [ $@ ]$(reset)\n"
 
 $(release_target):
-	@printf "$(green)Building [ $@ ]$(reset)\n"
-	cargo build --release
+	@printf "$(blue)Building [ $@ ]$(reset)\n"
+	cargo build --color=never --release
+	@printf "$(green)Built target [ $@ ]$(reset)\n"
 
 unit-tests:
 	cargo test
@@ -115,7 +149,16 @@ $(envfile): | $(dirs)
 		> $@
 
 $(os_release): /etc/os-release | $(dirs)
-	cp -f $< $@
+	@cp -f $< $@
+
+shellcheck: $(shellcheck_output)
+
+$(shellcheck_output): $(shell_scripts) | $(dirs)
+	@printf "$(yellow)Generating [ $@ ]$(reset)\n"
+	$(Q)shellcheck $(shellcheck_flags) $^ | tee $@ || (rm -f $@ && false)
+
+$(version_file): | $(dirs)
+	@printf "%s\n--\n" $(version_list) > $@ || (rm -f $@ && false)
 
 $(dirs):
 	mkdir -p $@
@@ -124,7 +167,9 @@ $(tarball): \
 		$(release_target) \
 		$(debug_target) \
 		$(envfile) \
-		$(os_release) 
+		$(os_release) \
+		$(shellcheck_output) \
+		$(version_file)
 	@printf "$(magenta)Packaging [ $@ ]$(reset)\n"
 	$(Q)find -H $^ -type f -size +0 \
 		| sed -e 's/^\(\.\/\)\?$(@D)\///g' \
@@ -155,10 +200,11 @@ endif
 	all \
 	artifactory-upload \
 	cargo-clean \
+	clean \
 	debug \
 	release \
-	unit-tests \
-	clean
+	shellcheck \
+	unit-tests
 
 .SILENT: \
 	$(dirs)
