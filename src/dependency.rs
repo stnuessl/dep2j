@@ -27,7 +27,7 @@ impl<'a> Dependency<'a> {
     pub fn new(target: &'a str) -> Self {
         Self {
             target: target,
-            prerequisites: Vec::new(),
+            prerequisites: Vec::with_capacity(32),
         }
     }
 }

@@ -38,7 +38,7 @@ OPTIONS:
 
     -o <file>       Write generated output to <file>.
     --              Intepret the remaining arguments as input files.
-
+                    This is useful if a file name starts with a '-'.
 Generic Options:
 
     --help, -h      Print this help message and exit.
@@ -76,16 +76,21 @@ fn main() {
         exit(1);
     }
 
-    let mut data = Vec::with_capacity(1024 * args.input.len());
+    let mut data = Vec::with_capacity(4096 * args.input.len());
 
     for path in &args.input {
-        let mut file = File::open(path)
-            .expect(format!("error: failed to open file \"{path}\"").as_str());
+        let mut file = match File::open(path) {
+            Ok(val) => val,
+            Err(err) => {
+                eprintln!("error: failed to open \"{path}\": {err}");
+                exit(1);
+            }
+        };
 
         match file.metadata() {
             Ok(item) => data.reserve(item.len() as usize),
             Err(_) => {}
-        };
+        }
 
         match file.read_to_end(&mut data) {
             Ok(_) => {}
@@ -97,8 +102,8 @@ fn main() {
     }
 
     if !isatty {
-        data.reserve(1024);
-        
+        data.reserve(4096);
+
         match stdin.read_to_end(&mut data) {
             Ok(_) => {}
             Err(err) => {

@@ -17,7 +17,7 @@
 
 use std::collections::{hash_map::Entry, HashMap, HashSet};
 use std::process::exit;
-use std::{mem, ptr, str};
+use std::{cmp, mem, ptr, str};
 
 use crate::dependency::Dependency;
 
@@ -30,10 +30,11 @@ impl<'a> DependencyParser<'a> {
     pub fn new() -> Self {
         Self {
             data: String::new(),
-            deps: Vec::with_capacity(256),
+            deps: Vec::new(),
         }
     }
 
+    #[must_use]
     pub fn parse(&mut self, data: Vec<u8>) -> &Vec<Dependency> {
         match String::from_utf8(data) {
             Ok(value) => self.data = value,
@@ -43,9 +44,19 @@ impl<'a> DependencyParser<'a> {
             }
         };
 
+        if self.deps.capacity() == 0 {
+            /*
+             * The number of dependencies is correlating with the size of the
+             * input. We just assume that a dependency occurs an specific
+             * amount of characters to reflect this and get a rough estimate.
+             */
+            let estimate = cmp::max(1 + self.data.len() / 256, 16);
+            self.deps.reserve(estimate);
+        }
+
         self.deps.clear();
         self.parse_rules();
-        self.postprocess();
+        self.merge_deps();
 
         &self.deps
     }
@@ -73,7 +84,7 @@ impl<'a> DependencyParser<'a> {
         }
     }
 
-    fn postprocess(&mut self) {
+    fn merge_deps(&mut self) {
         type DependencyMap<'a> = HashMap<&'a str, usize>;
         type PrerequisiteMap<'a> = HashMap<&'a str, HashSet<&'a str>>;
 
@@ -87,6 +98,8 @@ impl<'a> DependencyParser<'a> {
                 Entry::Occupied(entry) => {
                     let merged_dep = &mut self.deps[*entry.get()];
                     let set = prereq_map.get_mut(merged_dep.target).unwrap();
+
+                    set.reserve(dep.prerequisites.len());
 
                     for &prereq in &dep.prerequisites {
                         if set.insert(prereq) {
@@ -872,10 +885,12 @@ mod tests {
     #[test]
     fn parse_001() {
         let mut parser = DependencyParser::new();
-        parser.parse(Vec::from(""));
 
-        assert!(parser.data.is_empty());
-        assert!(parser.deps.is_empty());
+        let deps = parser.parse(Vec::from(""));
+        drop(deps);
+
+        assert_eq!(0, parser.deps.len());
+        assert_eq!(0, parser.data.len());
     }
 
     /**
@@ -980,43 +995,43 @@ mod tests {
     }
 
     /**
-     * DependencyParser::postprocess()
+     * DependencyParser::merge_deps()
      *
      * Verify that the function correctly deals with an empty dependency vector.
      */
     #[test]
-    fn postprocess_001() {
+    fn merge_deps_001() {
         let mut parser = DependencyParser::new();
-        parser.postprocess();
+        parser.merge_deps();
 
         assert_eq!(0, parser.deps.len());
     }
 
     /**
-     * DependencyParser::postprocess()
+     * DependencyParser::merge_deps()
      *
      * Verify that the function correctly deals with one element inside the
      * dependency vector.
      */
     #[test]
-    fn postprocess_002() {
+    fn merge_deps_002() {
         let mut parser = DependencyParser::new();
         parser.deps.push(Dependency::new("a"));
 
-        parser.postprocess();
+        parser.merge_deps();
 
         assert_eq!(1, parser.deps.len());
         assert_eq!("a", parser.deps[0].target);
     }
 
     /**
-     * DependencyParser::postprocess()
+     * DependencyParser::merge_deps()
      *
      * Verify that the function correctly deals with two identical targets
      * containing the same prerequisites inside the dependency vector.
      */
     #[test]
-    fn postprocess_003() {
+    fn merge_deps_003() {
         let mut parser = DependencyParser::new();
 
         parser.deps.push(Dependency::new("a"));
@@ -1025,7 +1040,7 @@ mod tests {
         parser.deps[0].prerequisites.push("b");
         parser.deps[1].prerequisites.push("b");
 
-        parser.postprocess();
+        parser.merge_deps();
 
         assert_eq!(1, parser.deps.len());
         assert_eq!("a", parser.deps[0].target);
@@ -1034,13 +1049,13 @@ mod tests {
     }
 
     /**
-     * DependencyParser::postprocess()
+     * DependencyParser::merge_deps()
      *
      * Verify that the function correctly deals with two identical targets
      * containing the different prerequisites inside the dependency vector.
      */
     #[test]
-    fn postprocess_004() {
+    fn merge_deps_004() {
         let mut parser = DependencyParser::new();
 
         parser.deps.push(Dependency::new("a"));
@@ -1049,7 +1064,7 @@ mod tests {
         parser.deps[0].prerequisites.push("b");
         parser.deps[1].prerequisites.push("c");
 
-        parser.postprocess();
+        parser.merge_deps();
 
         assert_eq!(1, parser.deps.len());
         assert_eq!("a", parser.deps[0].target);

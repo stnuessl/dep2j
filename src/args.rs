@@ -37,7 +37,9 @@ impl Args {
 }
 
 #[must_use]
-pub fn parse<I: Iterator<Item = String>>(mut argv: I) -> Args {
+pub fn parse<I: Iterator<Item = String> + ExactSizeIterator>(
+    mut argv: I,
+) -> Args {
     let mut result = Args::new();
     let mut dash_dash = false;
 
@@ -46,6 +48,10 @@ pub fn parse<I: Iterator<Item = String>>(mut argv: I) -> Args {
 
     while let Some(arg) = argv.next() {
         if !arg.starts_with('-') || dash_dash {
+            if result.input.capacity() == 0 {
+                result.input.reserve(argv.len());
+            }
+
             result.input.push(arg);
         } else if arg == "--" {
             dash_dash = true;
@@ -98,7 +104,7 @@ mod tests {
     /**
      * parse()
      *
-     * Verify that the function correctly handles input with just the 
+     * Verify that the function correctly handles input with just the
      * program name.
      */
     #[test]
@@ -111,7 +117,7 @@ mod tests {
     /**
      * parse()
      *
-     * Verify that the function correctly handles arguments specifiying input 
+     * Verify that the function correctly handles arguments specifiying input
      * and output files.
      */
     #[test]

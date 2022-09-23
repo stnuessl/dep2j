@@ -118,13 +118,11 @@ release: $(release_target)
 
 $(debug_target):
 	@printf "$(blue)Building [ $@ ]$(reset)\n"
-	cargo build --color=never
-	@printf "$(green)Built target [ $@ ]$(reset)\n"
+	cargo build
 
 $(release_target):
 	@printf "$(blue)Building [ $@ ]$(reset)\n"
-	cargo build --color=never --release
-	@printf "$(green)Built target [ $@ ]$(reset)\n"
+	cargo build --release
 
 unit-tests:
 	cargo test

@@ -23,9 +23,7 @@ pub struct JsonSerializer {
 
 impl JsonSerializer {
     pub fn new() -> Self {
-        Self {
-            buf: String::with_capacity(4096),
-        }
+        Self { buf: String::new() }
     }
 
     pub fn get_json_str(&self) -> &str {
@@ -33,6 +31,8 @@ impl JsonSerializer {
     }
 
     pub fn write_vec(&mut self, vec: &Vec<Dependency>) {
+        self.buf.reserve(4096 * vec.len());
+
         self.buf.push('[');
 
         for (i, dep) in vec.iter().enumerate() {
