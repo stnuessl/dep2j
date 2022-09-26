@@ -122,11 +122,16 @@ fn main() {
     let json = serializer.get_json_str();
 
     if args.output.is_empty() {
-        println!("{json}")
-    } else {
-        File::create(args.output)
-            .expect("error: failed to open output file")
-            .write_all(serializer.get_json_str().as_bytes())
-            .expect("error: failed to write to output file");
+        println!("{json}");
+        return;
     }
+
+    File::create(&args.output)
+        .and_then(|mut file| {
+            file.write_all(json.as_bytes())
+        })
+        .unwrap_or_else(|err| {
+            eprintln!("error: failed to write to \"{}\": {err}", args.output);
+            exit(1);
+        });
 }
