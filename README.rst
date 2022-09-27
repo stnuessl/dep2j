@@ -2,6 +2,10 @@
 dep2j
 =====
 
+.. image:: https://github.com/stnuessl/dep2j/actions/workflows/main.yaml/badge.svg
+   :alt: CI
+   :target: https://github.com/stnuessl/dep2j/actions
+
 Convert compiler generated dependency files (usually ending in *.d* or *.dep*) 
 to JSON.
 
