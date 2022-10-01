@@ -17,10 +17,11 @@
 
 mod args;
 mod dependency;
+mod hash;
 mod json;
 mod stdin;
 
-use std::env;
+use std::{env, str};
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::process::exit;
@@ -119,16 +120,16 @@ fn main() {
     let mut serializer = JsonSerializer::new();
     serializer.write_vec(&deps);
 
-    let json = serializer.get_json_str();
+    let json = serializer.get_json();
 
     if args.output.is_empty() {
-        println!("{json}");
+        println!("{}", unsafe{str::from_utf8_unchecked(json)});
         return;
     }
 
     File::create(&args.output)
         .and_then(|mut file| {
-            file.write_all(json.as_bytes())
+            file.write_all(json)
         })
         .unwrap_or_else(|err| {
             eprintln!("error: failed to write to \"{}\": {err}", args.output);

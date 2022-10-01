@@ -18,61 +18,65 @@
 use crate::dependency::Dependency;
 
 pub struct JsonSerializer {
-    buf: String,
+    buf: Vec<u8>,
 }
 
 impl JsonSerializer {
     pub fn new() -> Self {
-        Self { buf: String::new() }
+        Self { buf: Vec::new() }
     }
 
-    pub fn get_json_str(&self) -> &str {
-        self.buf.as_str()
+    pub fn get_json(&self) -> &[u8] {
+        self.buf.as_slice()
     }
 
     pub fn write_vec(&mut self, vec: &Vec<Dependency>) {
         self.buf.reserve(4096 * vec.len());
 
-        self.buf.push('[');
+        self.buf.push(b'[');
 
         for (i, dep) in vec.iter().enumerate() {
             if i != 0 {
-                self.buf.push(',');
+                self.buf.push(b',');
             }
 
-            self.buf.push('{');
+            self.buf.push(b'{');
 
-            self.buf.push_str("\"target\":");
+            self.buf.extend_from_slice(b"\"target\":");
             self.write_str(dep.target);
-            self.buf.push_str(",\"prerequisites\":[");
+            self.buf.extend_from_slice(b",\"prerequisites\":[");
 
             for (j, val) in dep.prerequisites.iter().enumerate() {
                 if j != 0 {
-                    self.buf.push(',');
+                    self.buf.push(b',');
                 }
 
                 self.write_str(val);
             }
 
-            self.buf.push(']');
-            self.buf.push('}');
+            self.buf.push(b']');
+            self.buf.push(b'}');
         }
 
-        self.buf.push(']');
+        self.buf.push(b']');
     }
 
     fn write_str(&mut self, slice: &str) {
-        self.buf.push('\"');
+        self.buf.push(b'\"');
 
-        for c in slice.chars() {
-            match c {
-                '\\' => self.buf.push_str("\\\\"),
-                '"' => self.buf.push_str("\\\""),
-                _ => self.buf.push(c),
+        for byte in slice.bytes() {
+            match byte {
+                b'\\' | b'"' => {
+                    self.buf.push(b'\\');
+                    self.buf.push(byte);
+                }
+                _ => {
+                    self.buf.push(byte);
+                }
             };
         }
 
-        self.buf.push('\"');
+        self.buf.push(b'\"');
     }
 }
 
@@ -81,17 +85,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn write_vec_empty() {
+    fn write_vec_001() {
         let vec: Vec<Dependency> = Vec::new();
 
         let mut serializer = JsonSerializer::new();
         serializer.write_vec(&vec);
 
-        assert_eq!("[]", serializer.buf);
+        assert_eq!(b"[]", serializer.buf.as_slice());
     }
 
     #[test]
-    fn write_vec_one() {
+    fn write_vec_002() {
         let dep = Dependency {
             target: "a",
             prerequisites: Vec::from(["b"]),
@@ -103,13 +107,13 @@ mod tests {
         serializer.write_vec(&vec);
 
         assert_eq!(
-            "[{\"target\":\"a\",\"prerequisites\":[\"b\"]}]",
-            serializer.buf
+            b"[{\"target\":\"a\",\"prerequisites\":[\"b\"]}]",
+            serializer.buf.as_slice()
         );
     }
 
     #[test]
-    fn write_vec_two() {
+    fn write_vec_003() {
         let dep = Dependency {
             target: "a",
             prerequisites: Vec::from(["b", "c"]),
@@ -121,32 +125,32 @@ mod tests {
         serializer.write_vec(&vec);
 
         assert_eq!(
-            "[{\"target\":\"a\",\"prerequisites\":[\"b\",\"c\"]}]",
-            serializer.buf
+            b"[{\"target\":\"a\",\"prerequisites\":[\"b\",\"c\"]}]",
+            serializer.buf.as_slice()
         );
     }
 
     #[test]
-    fn write_str_empty() {
+    fn write_str_001() {
         let mut serializer = JsonSerializer::new();
         serializer.write_str("");
 
-        assert_eq!("\"\"", serializer.buf);
+        assert_eq!(b"\"\"", serializer.buf.as_slice());
     }
 
     #[test]
-    fn write_str_noescaping() {
+    fn write_str_002() {
         let mut serializer = JsonSerializer::new();
         serializer.write_str("ez");
 
-        assert_eq!("\"ez\"", serializer.buf);
+        assert_eq!(b"\"ez\"", serializer.buf.as_slice());
     }
 
     #[test]
-    fn write_str_escaping() {
+    fn write_str_003() {
         let mut serializer = JsonSerializer::new();
         serializer.write_str("\"e\\z\"");
 
-        assert_eq!("\"\\\"e\\\\z\\\"\"", serializer.buf);
+        assert_eq!(b"\"\\\"e\\\\z\\\"\"", serializer.buf.as_slice());
     }
 }

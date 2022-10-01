@@ -16,33 +16,29 @@
  */
 
 use std::collections::{hash_map::Entry, HashMap, HashSet};
+use std::hash::BuildHasherDefault;
 use std::process::exit;
 use std::{cmp, mem, ptr, str};
 
 use crate::dependency::Dependency;
+use crate::hash::PathHasher;
 
 pub struct DependencyParser<'a> {
-    data: String,
+    data: Vec<u8>,
     deps: Vec<Dependency<'a>>,
 }
 
 impl<'a> DependencyParser<'a> {
     pub fn new() -> Self {
         Self {
-            data: String::new(),
+            data: Vec::new(),
             deps: Vec::new(),
         }
     }
 
     #[must_use]
     pub fn parse(&mut self, data: Vec<u8>) -> &Vec<Dependency> {
-        match String::from_utf8(data) {
-            Ok(value) => self.data = value,
-            Err(error) => {
-                eprintln!("error: {} in combined input", error.to_string());
-                exit(1);
-            }
-        };
+        self.data = data;
 
         if self.deps.capacity() == 0 {
             /*
@@ -67,11 +63,11 @@ impl<'a> DependencyParser<'a> {
             let end = ptr.add(self.data.len());
 
             while ptr < end {
-                match *ptr as char {
-                    '\n' | ' ' | '\\' => {
+                match *ptr {
+                    b'\n' | b' ' | b'\\' => {
                         ptr = ptr.add(1);
                     }
-                    '#' => {
+                    b'#' => {
                         ptr = util::skip_comment(ptr, end);
                         continue;
                     }
@@ -86,7 +82,8 @@ impl<'a> DependencyParser<'a> {
 
     fn merge_deps(&mut self) {
         type DependencyMap<'a> = HashMap<&'a str, usize>;
-        type PrerequisiteMap<'a> = HashMap<&'a str, HashSet<&'a str>>;
+        type StrHashSet<'a> = HashSet<&'a str, BuildHasherDefault<PathHasher>>;
+        type PrerequisiteMap<'a> = HashMap<&'a str, StrHashSet<'a>>;
 
         let len = self.deps.len();
         let deps = mem::replace(&mut self.deps, Vec::with_capacity(len));
@@ -108,8 +105,11 @@ impl<'a> DependencyParser<'a> {
                     }
                 }
                 Entry::Vacant(entry) => {
+                    let hasher = BuildHasherDefault::<PathHasher>::default();
+                    let mut set = HashSet::with_hasher(hasher);
+
                     let capacity = 2 * dep.prerequisites.len();
-                    let mut set = HashSet::with_capacity(capacity);
+                    set.reserve(capacity);
 
                     for &prereq in &dep.prerequisites {
                         set.insert(prereq);
@@ -131,9 +131,11 @@ impl<'a> DependencyParser<'a> {
         let mut ptr = begin;
 
         while ptr < end {
-            match *ptr as char {
-                ' ' | '\n' => ptr = ptr.add(1),
-                '#' => {
+            match *ptr {
+                b' ' | b'\n' => {
+                    ptr = ptr.add(1);
+                }
+                b'#' => {
                     ptr = util::skip_comment(ptr, end);
                 }
                 _ => {
@@ -155,8 +157,8 @@ impl<'a> DependencyParser<'a> {
         let mut ptr = begin;
 
         while ptr < end {
-            match *ptr as char {
-                ' ' => {
+            match *ptr {
+                b' ' => {
                     let prev = ptr.sub(1);
                     ptr = ptr.add(1);
 
@@ -168,7 +170,7 @@ impl<'a> DependencyParser<'a> {
                         continue;
                     }
 
-                    if *prev as char == ':' {
+                    if *prev == b':' {
                         /*
                          * Given "a b : ", ensure that the final ':' is not
                          * evaluated as a target.
@@ -180,19 +182,19 @@ impl<'a> DependencyParser<'a> {
                         return self.parse_prerequisites(len, ptr, end);
                     }
 
-                    if *prev as char != '\\' {
+                    if *prev != b'\\' {
                         self.emit_target(str_begin, prev.add(1));
                         str_begin = ptr::null();
                     }
                 }
-                '#' => {
+                b'#' => {
                     eprintln!("error: invalid comment in target definition");
                     exit(1)
                 }
-                '\n' => {
+                b'\n' => {
                     let prev = ptr.sub(1);
 
-                    if ptr != str_begin && *prev as char != ':' {
+                    if ptr != str_begin && *prev != b':' {
                         eprintln!("error: invalid dependency file syntax");
                         exit(1);
                     }
@@ -229,15 +231,15 @@ impl<'a> DependencyParser<'a> {
         let mut ptr = begin;
 
         while ptr < end && !done {
-            match *ptr as char {
-                ' ' => {}
-                '\\' => {}
-                '\n' => {
-                    if ptr != begin && *ptr.sub(1) as char != '\\' {
+            match *ptr {
+                b' ' => {}
+                b'\\' => {}
+                b'\n' => {
+                    if ptr != begin && *ptr.sub(1) != b'\\' {
                         return ptr.add(1);
                     }
                 }
-                '#' => {
+                b'#' => {
                     ptr = util::skip_comment(ptr, begin);
                     continue;
                 }
@@ -259,27 +261,30 @@ impl<'a> DependencyParser<'a> {
         begin: *const u8,
         end: *const u8,
     ) -> (*const u8, bool) {
-        let mut newline = false;
         let mut ptr = begin;
 
         while ptr < end {
-            match *ptr as char {
-                '\n' => {
-                    if ptr != begin && *ptr.sub(1) as char != '\\' {
-                        newline = true;
-                        break;
+            match *ptr {
+                b'\n' => {
+                    if ptr != begin && *ptr.sub(1) != b'\\' {
+                        self.emit_prerequisite(start, begin, ptr);
+
+                        return (ptr.add(1), true);
                     }
                 }
-                '#' => {
-                    if ptr != begin && *ptr.sub(1) as char != '\\' {
+                b'#' => {
+                    if ptr != begin && *ptr.sub(1) != b'\\' {
                         self.emit_prerequisite(start, begin, ptr);
                         ptr = util::skip_comment(ptr, end);
-                        newline = true;
 
-                        return (ptr, newline);
+                        return (ptr, false);
                     }
                 }
-                ' ' => break,
+                b' ' => {
+                    self.emit_prerequisite(start, begin, ptr);
+
+                    return (ptr.add(1), false);
+                }
                 _ => {}
             }
 
@@ -288,11 +293,7 @@ impl<'a> DependencyParser<'a> {
 
         self.emit_prerequisite(start, begin, ptr);
 
-        if ptr < end {
-            ptr = ptr.add(1);
-        }
-
-        (ptr, newline)
+        (ptr, false)
     }
 
     fn emit_prerequisite(
@@ -318,7 +319,6 @@ mod util {
             let size = end as usize - begin as usize;
             let slice = slice::from_raw_parts(begin, size);
 
-            /* All slices are valid utf-8 as they are from inside a String */
             str::from_utf8_unchecked(slice)
         }
     }
@@ -327,7 +327,7 @@ mod util {
         unsafe {
             let mut ptr = begin;
 
-            while ptr < end && *ptr as char != '\n' {
+            while ptr < end && *ptr != b'\n' {
                 ptr = ptr.add(1);
             }
 
