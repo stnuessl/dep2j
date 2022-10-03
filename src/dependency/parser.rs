@@ -90,7 +90,7 @@ impl<'a> DependencyParser<'a> {
         let mut deps_map: DependencyMap = HashMap::with_capacity(len);
         let mut prereq_map: PrerequisiteMap = HashMap::with_capacity(len);
 
-        for dep in deps.into_iter() {
+        for dep in deps {
             match deps_map.entry(dep.target) {
                 Entry::Occupied(entry) => {
                     let merged_dep = &mut self.deps[*entry.get()];
@@ -232,8 +232,7 @@ impl<'a> DependencyParser<'a> {
 
         while ptr < end && !done {
             match *ptr {
-                b' ' => {}
-                b'\\' => {}
+                b' ' | b'\\' => {}
                 b'\n' => {
                     if ptr != begin && *ptr.sub(1) != b'\\' {
                         return ptr.add(1);

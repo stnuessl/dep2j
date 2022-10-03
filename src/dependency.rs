@@ -17,16 +17,16 @@
 
 pub mod parser;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Dependency<'a> {
     pub target: &'a str,
     pub prerequisites: Vec<&'a str>,
 }
 
 impl<'a> Dependency<'a> {
-    pub fn new(target: &'a str) -> Self {
+    pub fn new(name: &'a str) -> Self {
         Self {
-            target: target,
+            target: name,
             prerequisites: Vec::with_capacity(32),
         }
     }

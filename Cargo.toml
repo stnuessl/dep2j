@@ -1,5 +1,12 @@
 [package]
 name = "dep2j"
+description = "A command-line tool for converting dependency files to JSON."
+readme = "README.rst"
+license = "GPL-2.0"
+homepage = ""
+repository = "https://www.github.com/stuessl/dep2j"
+keywords = ["command-line", "dependency", "json"]
+categories = ["commandline-tools", "development-tools"]
 version = "0.1.0"
 edition = "2021"
 

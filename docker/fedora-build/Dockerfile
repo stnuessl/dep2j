@@ -8,9 +8,11 @@
 FROM fedora:latest
 RUN dnf install --assumeyes \
     cargo \
+    clippy \
     curl \
     make \
     rust \
+    ShellCheck \
 && dnf clean dbcache --assumeyes \
 && useradd \
     --shell /usr/bin/bash \

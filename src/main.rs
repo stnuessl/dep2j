@@ -88,29 +88,22 @@ fn main() {
             }
         };
 
-        match file.metadata() {
-            Ok(item) => data.reserve(item.len() as usize),
-            Err(_) => {}
+        if let Ok(attr) = file.metadata() {
+            data.reserve(attr.len() as usize);
         }
 
-        match file.read_to_end(&mut data) {
-            Ok(_) => {}
-            Err(err) => {
-                eprintln!("error: failed to read file \"{path}\": {}", err);
-                exit(1);
-            }
+        if let Err(err) = file.read_to_end(&mut data) {
+            eprintln!("error: failed to read file \"{path}\": {}", err);
+            exit(1);
         }
     }
 
     if !isatty {
         data.reserve(4096);
 
-        match stdin.read_to_end(&mut data) {
-            Ok(_) => {}
-            Err(err) => {
-                eprintln!("error: failed to read stdin: {}", err);
-                exit(1);
-            }
+        if let Err(err) = stdin.read_to_end(&mut data) {
+            eprintln!("error: failed to read stdin: {}", err);
+            exit(1);
         }
     }
 
@@ -118,7 +111,7 @@ fn main() {
     let deps = parser.parse(data);
 
     let mut serializer = JsonSerializer::new();
-    serializer.write_vec(&deps);
+    serializer.write_vec(deps);
 
     let json = serializer.get_json();
 

@@ -11,7 +11,9 @@ RUN apt-get update && apt-get --assume-yes install \
     cargo \
     curl \
     make \
+    rust-clippy \
     rustc \
+    shellcheck \
 && useradd \
     --shell /usr/bin/bash \
     --no-create-home \

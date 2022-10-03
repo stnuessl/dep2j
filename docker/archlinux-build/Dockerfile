@@ -10,6 +10,7 @@ RUN pacman -Syu --noconfirm \
     curl \
     make \
     rust \
+    shellcheck \
 && pacman -Scc --noconfirm \
 && useradd \
     --shell /usr/bin/bash \

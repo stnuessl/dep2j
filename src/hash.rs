@@ -35,7 +35,9 @@ impl Default for PathHasher {
 
 impl PathHasher {
     fn add(&mut self, num: usize) {
-        self.hash = self.hash.rotate_left(4 * mem::size_of::<usize>() as u32);
+        const VALUE: u32 = (4 * mem::size_of::<usize>()) as u32;
+
+        self.hash = self.hash.rotate_left(VALUE);
         self.hash ^= num;
     }
 }
@@ -67,7 +69,7 @@ impl Hasher for PathHasher {
             view = &view[2..];
         }
 
-        if chunk_size > 1 && view.len() >= 1 {
+        if chunk_size > 1 && !view.is_empty() {
             let data = unsafe { view.try_into().unwrap_unchecked() };
 
             self.add(u8::from_ne_bytes(data) as usize);

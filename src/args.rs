@@ -17,7 +17,7 @@
 
 use std::process::exit;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Args {
     pub input: Vec<String>,
     pub output: String,

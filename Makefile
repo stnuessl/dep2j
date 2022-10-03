@@ -22,20 +22,38 @@
 # THE SOFTWARE.
 #
 
+SHELL := bash -o pipefail
+
 DESTDIR := /usr/local/bin
-BUILD_DIR := $(CURDIR)/build
+BUILD_DIR := build
 cargo_dir := $(BUILD_DIR)/cargo
 
 bin := dep2j
+
+version_core := \
+	$(shell sed -ne 's/version\s\+=\s\+"\([0-9\.]\+\)".*/\1/p' Cargo.toml)
+
 debug_target := $(cargo_dir)/debug/$(bin)
 release_target := $(cargo_dir)/release/$(bin)
 
 envfile := $(BUILD_DIR)/env.txt
 os_release := $(BUILD_DIR)/os-release.txt
-tarball := $(BUILD_DIR)/$(bin).tar.gz
+tarball := $(BUILD_DIR)/$(bin)-$(version_core).tar.gz
 
 
 unix_time := $(shell date --utc +"%s")
+
+#
+# Variables for unit tests
+#
+ut_dir := $(BUILD_DIR)/unit-tests
+ut_result := $(ut_dir)/results.txt
+
+#
+# Variables for clippy
+#
+clippy_dir := $(BUILD_DIR)/clippy
+clippy_result := $(clippy_dir)/result.txt
 
 
 #
@@ -64,7 +82,9 @@ version_list = \
 
 dirs := \
 	$(BUILD_DIR) \
-	$(shellcheck_dir)
+	$(shellcheck_dir) \
+	$(ut_dir) \
+	$(clippy_dir)
 
 
 #
@@ -113,9 +133,6 @@ debug: $(debug_target)
 
 release: $(release_target)
 
--include $(cargo_dir)/debug/dep2j.d
--include $(cargo_dir)/release/dep2j.d
-
 $(debug_target):
 	@printf "$(blue)Building [ $@ ]$(reset)\n"
 	cargo build
@@ -124,8 +141,18 @@ $(release_target):
 	@printf "$(blue)Building [ $@ ]$(reset)\n"
 	cargo build --release
 
-unit-tests:
-	cargo test
+unit-tests: $(ut_result)
+
+$(ut_result): | $(dirs)
+	@printf "$(blue)Generating [ $@ ]$(reset)\n"
+	cargo test --release 2>&1 | tee $@ || (rm -f $@ && false)
+
+clippy: $(clippy_result)
+
+$(clippy_result): | $(dirs)
+	@printf "$(blue)Generating [ $@ ]$(reset)\n"
+	cargo clippy --release -- --deny=clippy::all 2>&1 | tee $@ \
+		|| (rm -f $@ && false)
 
 install: $(release_target)
 	cp -f $< $(DESTDIR)
@@ -167,6 +194,8 @@ $(tarball): \
 		$(envfile) \
 		$(os_release) \
 		$(shellcheck_output) \
+		$(ut_result) \
+		$(clippy_result) \
 		$(version_file)
 	@printf "$(magenta)Packaging [ $@ ]$(reset)\n"
 	$(Q)find -H $^ -type f -size +0 \
@@ -195,14 +224,18 @@ endif
 
 
 .PHONY: \
+	$(release_target) \
+	$(debug_target) \
 	all \
 	artifactory-upload \
 	cargo-clean \
 	clean \
 	debug \
+	lint \
 	release \
 	shellcheck \
 	unit-tests
 
 .SILENT: \
 	$(dirs)
+
