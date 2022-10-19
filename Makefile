@@ -226,6 +226,7 @@ endif
 .PHONY: \
 	$(release_target) \
 	$(debug_target) \
+	$(ut_result) \
 	all \
 	artifactory-upload \
 	cargo-clean \
