@@ -61,20 +61,26 @@ impl JsonSerializer {
         self.buf.push(b']');
     }
 
-    fn write_str(&mut self, slice: &str) {
+    fn write_str(&mut self, data: &str) {
+        let bytes = data.as_bytes();
+        let mut i = 0;
+
         self.buf.push(b'\"');
 
-        for byte in slice.bytes() {
-            match byte {
+        for (j, _) in bytes.iter().enumerate() {
+            match bytes[j] {
                 b'\\' | b'"' => {
+                    self.buf.extend_from_slice(&bytes[i..j]);
                     self.buf.push(b'\\');
-                    self.buf.push(byte);
+                    self.buf.push(bytes[j]);
+
+                    i = j + 1;
                 }
-                _ => {
-                    self.buf.push(byte);
-                }
-            };
+                _ => {}
+            }
         }
+
+        self.buf.extend_from_slice(&bytes[i..]);
 
         self.buf.push(b'\"');
     }
@@ -151,6 +157,9 @@ mod tests {
         let mut serializer = JsonSerializer::new();
         serializer.write_str("\"e\\z\"");
 
+        unsafe {
+        assert_eq!("\"\\\"e\\\\z\\\"\"", std::str::from_utf8_unchecked(serializer.buf.as_slice()));
+        }
         assert_eq!(b"\"\\\"e\\\\z\\\"\"", serializer.buf.as_slice());
     }
 }
