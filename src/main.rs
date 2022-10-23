@@ -26,7 +26,7 @@ use std::fs::File;
 use std::io::{self, Read, Write};
 use std::process::exit;
 
-use crate::dependency::parser::DependencyParser;
+use crate::dependency::DependencyParser;
 use crate::json::JsonSerializer;
 use crate::stdin::Term;
 
