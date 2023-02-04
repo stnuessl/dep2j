@@ -93,7 +93,7 @@ fn main() {
         }
 
         if let Err(err) = file.read_to_end(&mut data) {
-            eprintln!("error: failed to read file \"{path}\": {}", err);
+            eprintln!("error: failed to read file \"{path}\": {err}");
             exit(1);
         }
     }
@@ -102,7 +102,7 @@ fn main() {
         data.reserve(4096);
 
         if let Err(err) = stdin.read_to_end(&mut data) {
-            eprintln!("error: failed to read stdin: {}", err);
+            eprintln!("error: failed to read stdin: {err}");
             exit(1);
         }
     }

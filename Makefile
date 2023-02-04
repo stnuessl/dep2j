@@ -22,6 +22,8 @@
 # THE SOFTWARE.
 #
 
+# CARGO_PROFILE_RELEASE_DEBUG=true CARGO_PROFILE_RELEASE_STRIP=none cargo flamegraph --deterministic -- llvm.d > /dev/null
+
 SHELL := bash -o pipefail
 
 DESTDIR := /usr/local/bin
