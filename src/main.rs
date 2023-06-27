@@ -19,16 +19,14 @@ mod args;
 mod dependency;
 mod hash;
 mod json;
-mod stdin;
 
 use std::{env, str};
 use std::fs::File;
-use std::io::{self, Read, Write};
+use std::io::{self, Read, Write, IsTerminal};
 use std::process::exit;
 
 use crate::dependency::DependencyParser;
 use crate::json::JsonSerializer;
-use crate::stdin::Term;
 
 fn help() {
     println!(
@@ -60,7 +58,7 @@ fn main() {
     let args = args::parse(argv);
 
     let mut stdin = io::stdin();
-    let isatty = stdin.isatty();
+    let isatty = stdin.is_terminal();
 
     if args.help || (isatty && argc < 2) {
         help();
