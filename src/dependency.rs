@@ -173,7 +173,7 @@ impl<'a> DependencyParser<'a> {
 
         while ptr < end {
             match *ptr {
-                b' ' => {
+                b' ' | b'\t' => {
                     let prev = ptr.sub(1);
                     ptr = ptr.add(1);
 
@@ -247,7 +247,7 @@ impl<'a> DependencyParser<'a> {
 
         while ptr < end && !done {
             match *ptr {
-                b' ' | b'\\' => {}
+                b' ' | b'\t' | b'\\' => {}
                 b'\n' => {
                     if ptr != begin && *ptr.sub(1) != b'\\' {
                         return ptr.add(1);
@@ -294,7 +294,7 @@ impl<'a> DependencyParser<'a> {
                         return (ptr, false);
                     }
                 }
-                b' ' => {
+                b' ' | b'\t' => {
                     self.emit_prerequisite(start, begin, ptr);
 
                     return (ptr.add(1), false);
@@ -701,6 +701,66 @@ mod tests {
     }
 
     /**
+     * DependencyParser::parse_prerequisites()
+     *
+     * Verify that the function correctly deals with a tab at the beginning
+     * of the prerequisites string.
+     */
+    #[test]
+    fn parse_prerequisites_007() {
+        let data = "\tc d";
+        let range = data.as_bytes().as_ptr_range();
+        let (begin, end) = (range.start, range.end);
+
+        let mut parser = DependencyParser::new();
+        parser.deps.push(Dependency::new("a"));
+        parser.deps.push(Dependency::new("b"));
+
+        let ptr = unsafe { parser.parse_prerequisites(0, begin, end) };
+
+        assert_eq!(end, ptr);
+        assert_eq!(2, parser.deps.len());
+
+        assert_eq!(2, parser.deps[0].prerequisites.len());
+        assert_eq!("c", parser.deps[0].prerequisites[0]);
+        assert_eq!("d", parser.deps[0].prerequisites[1]);
+
+        assert_eq!(2, parser.deps[1].prerequisites.len());
+        assert_eq!("c", parser.deps[1].prerequisites[0]);
+        assert_eq!("d", parser.deps[1].prerequisites[1]);
+    }
+
+    /**
+     * DependencyParser::parse_prerequisites()
+     *
+     * Verify that the function correctly deals with a tab at the beginning
+     * of each prerequisite string.
+     */
+    #[test]
+    fn parse_prerequisites_008() {
+        let data = "\tc\td";
+        let range = data.as_bytes().as_ptr_range();
+        let (begin, end) = (range.start, range.end);
+
+        let mut parser = DependencyParser::new();
+        parser.deps.push(Dependency::new("a"));
+        parser.deps.push(Dependency::new("b"));
+
+        let ptr = unsafe { parser.parse_prerequisites(0, begin, end) };
+
+        assert_eq!(end, ptr);
+        assert_eq!(2, parser.deps.len());
+
+        assert_eq!(2, parser.deps[0].prerequisites.len());
+        assert_eq!("c", parser.deps[0].prerequisites[0]);
+        assert_eq!("d", parser.deps[0].prerequisites[1]);
+
+        assert_eq!(2, parser.deps[1].prerequisites.len());
+        assert_eq!("c", parser.deps[1].prerequisites[0]);
+        assert_eq!("d", parser.deps[1].prerequisites[1]);
+    }
+
+    /**
      * DependencyParser::parse_rule()
      *
      * Verify that the function correctly deals with an empty input.
@@ -848,6 +908,32 @@ mod tests {
     }
 
     /**
+     * DependencyParser::parse_rule()
+     *
+     * Verify that the function correctly deals with a rule consisting of
+     * one target and two dependencies started by a tab.
+     */
+    #[test]
+    fn parse_rule_007() {
+        let data = "a:\tb c";
+        let range = data.as_bytes().as_ptr_range();
+        let (begin, end) = (range.start, range.end);
+
+        let mut parser = DependencyParser::new();
+
+        let ptr = unsafe { parser.parse_rule(begin, end) };
+
+        assert_eq!(end, ptr);
+        assert_eq!(1, parser.deps.len());
+        assert_eq!("a", parser.deps[0].target);
+
+        assert_eq!(2, parser.deps[0].prerequisites.len());
+        assert_eq!("b", parser.deps[0].prerequisites[0]);
+        assert_eq!("c", parser.deps[0].prerequisites[1]);
+    }
+
+
+    /**
      * DependencyParser::parse()
      *
      * Verify that the function correctly deals with empty input.
@@ -856,8 +942,7 @@ mod tests {
     fn parse_001() {
         let mut parser = DependencyParser::new();
 
-        let deps = parser.parse(Vec::from(""));
-        drop(deps);
+        let _ = parser.parse(Vec::from(""));
 
         assert_eq!(0, parser.deps.len());
         assert_eq!(0, parser.data.len());
